@@ -84,6 +84,9 @@ docs = [
 default-groups = ["dev", "docs"]
 required-version = ">=0.8.6"
 
+[tool.uv.index]
+allow-insecure-host = ["pypi.org"]
+
 [project.scripts]
 uvicorn = "uvicorn.main:main"
 
@@ -95,6 +98,9 @@ Source = "https://github.com/Kludex/uvicorn"
 
 [tool.hatch.version]
 path = "uvicorn/__init__.py"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.sdist]
 include = ["/uvicorn", "/tests", "/requirements.txt"]
