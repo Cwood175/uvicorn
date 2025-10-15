@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv>=0.8.6"]
 build-backend = "hatchling.build"
 
 [project]
@@ -52,7 +52,7 @@ standard = [
 [dependency-groups]
 dev = [
     # We add uvicorn[standard] so `uv sync` considers the extras.
-    "uvicorn[standard]",
+    "uvicorn[standard] @ https://github.com/encode/uvicorn/archive/v0.37.0.tar.gz",
     "ruff==0.11.9",
     "pytest==8.3.5",
     "pytest-mock==3.14.0",
