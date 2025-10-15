@@ -67,7 +67,7 @@ dev = [
     "coverage-enable-subprocess==1.0",
     "httpx==0.28.1",
     # check dist
-    "twine==6.1.0",
+    "twine==6.2.0",
     # Explicit optionals,
     "a2wsgi==1.10.8",
     "wsproto==1.2.0",
@@ -82,7 +82,7 @@ docs = [
 
 [tool.uv]
 default-groups = ["dev", "docs"]
-required-version = ">=0.8.6"
+required-version = "0.7.19"
 
 [project.scripts]
 uvicorn = "uvicorn.main:main"
