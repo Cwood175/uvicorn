@@ -1,11 +1,8 @@
+
 ---
 name: Test Suite
 
-on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+on: push
 
 jobs:
   tests:

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "uvicorn"
-dynamic = ["version"]
+version = "0.38.0"
 description = "The lightning-fast ASGI server."
 readme = "README.md"
 license = "BSD-3-Clause"
