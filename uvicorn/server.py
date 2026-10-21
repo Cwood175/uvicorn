@@ -267,12 +267,11 @@ class Server:
         # Stop accepting new connections.
         for server in self.servers:
             server.close()
-        for sock in sockets or []:
-            sock.close()
+        # Defer closing listening sockets until existing connections finish handshakes.
+        deferred_sockets = list(sockets or [])
 
-        # Request shutdown on all existing connections.
-        for connection in list(self.server_state.connections):
-            connection.shutdown()
+        # Do NOT request shutdown on existing connections immediately to allow in-flight handshakes to complete.
+        # We'll give them time, and only force shutdown if graceful timeout is exceeded.
         await asyncio.sleep(0.1)
 
         # When 3.10 is not supported anymore, use `async with asyncio.timeout(...):`.
@@ -286,11 +285,27 @@ class Server:
                 "Cancel %s running task(s), timeout graceful shutdown exceeded",
                 len(self.server_state.tasks),
             )
+            # Force shutdown existing connections to unblock tasks handling them.
+            for connection in list(self.server_state.connections):
+                try:
+                    connection.shutdown()
+                except Exception:
+                    logger.exception(
+                        "Error shutting down connection during forced shutdown"
+                    )
+            # Cancel remaining tasks.
             for t in self.server_state.tasks:
                 if sys.version_info < (3, 9):  # pragma: py-gte-39
                     t.cancel()
                 else:  # pragma: py-lt-39
                     t.cancel(msg="Task cancelled, timeout graceful shutdown exceeded")
+
+        # Now that connections are drained or forcibly shutdown, close listening sockets.
+        for sock in deferred_sockets:
+            try:
+                sock.close()
+            except Exception:
+                logger.exception("Error closing socket during shutdown")
 
         # Send the lifespan shutdown event, and wait for application shutdown.
         if not self.force_exit:

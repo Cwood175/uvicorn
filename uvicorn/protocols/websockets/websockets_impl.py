@@ -148,8 +148,11 @@ class WebSocketProtocol(WebSocketServerProtocol):
         )
         self.handshake_completed_event.set()
         super().connection_lost(exc)
-        if exc is None:
-            self.transport.close()
+        # Do not unconditionally close the transport here. Closing the transport
+        # while the handshake/HTTP response may still be in-flight can cause
+        # clients to observe truncated/malformed responses. Let the websockets
+        # library manage the transport lifecycle or close elsewhere once the
+        # handshake has been properly handled.
 
     def shutdown(self) -> None:
         self.ws_server.closing = True
@@ -157,7 +160,11 @@ class WebSocketProtocol(WebSocketServerProtocol):
             self.fail_connection(1012)
         else:
             self.send_500_response()
-        self.transport.close()
+        # Do not immediately close the transport here. Closing the transport
+        # right after initiating a 500 response may terminate the connection
+        # before the response is flushed. Allow the underlying websockets
+        # machinery to manage the transport or close at a point where the
+        # response has been sent.
 
     def on_task_complete(self, task: asyncio.Task) -> None:
         self.tasks.discard(task)
@@ -254,8 +261,10 @@ class WebSocketProtocol(WebSocketServerProtocol):
         try:
             result = await self.app(self.scope, self.asgi_receive, self.asgi_send)
         except Disconnected:
+            # The application disconnected; mark closed. Do not forcibly close
+            # the transport here as that can interrupt an in-flight handshake
+            # or response. Let the websockets library manage transport teardown.
             self.closed_event.set()
-            self.transport.close()
         except BaseException as exc:
             self.closed_event.set()
             msg = "Exception in ASGI application\n"
@@ -264,7 +273,9 @@ class WebSocketProtocol(WebSocketServerProtocol):
                 self.send_500_response()
             else:
                 await self.handshake_completed_event.wait()
-            self.transport.close()
+            # Avoid closing the transport here to prevent truncating responses
+            # that may still be in-flight. The transport lifecycle should be
+            # managed once the handshake/response is completed.
         else:
             self.closed_event.set()
             if not self.handshake_started_event.is_set():
@@ -275,7 +286,7 @@ class WebSocketProtocol(WebSocketServerProtocol):
                 msg = "ASGI callable should return None, but returned '%s'."
                 self.logger.error(msg, result)
                 await self.handshake_completed_event.wait()
-            self.transport.close()
+            # Do not close the transport here for the same reasons as above.
 
     async def asgi_send(self, message: "ASGISendEvent") -> None:
         message_type = message["type"]

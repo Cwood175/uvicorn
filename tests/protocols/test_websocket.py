@@ -79,7 +79,7 @@ async def test_invalid_upgrade(
     http_protocol_cls: "typing.Type[H11Protocol | HttpToolsProtocol]",
     unused_tcp_port: int,
 ):
-    def app(scope: Scope):
+    async def app(scope: Scope, receive: ASGIReceiveCallable, send: ASGISendCallable):
         return None
 
     config = Config(
@@ -1006,9 +1006,21 @@ async def test_server_reject_connection(
         message = await receive()
         assert message["type"] == "websocket.connect"
 
-        # Reject the connection.
-        await send({"type": "websocket.close"})
-        # -- At this point websockets' recv() is unusable. --
+        # Reject the connection by sending an HTTP response before handshake.
+        await send(
+            {
+                "type": "websocket.http.response.start",
+                "status": 403,
+                "headers": [[b"content-type", b"text/plain"]],
+            }
+        )
+        await send(
+            {
+                "type": "websocket.http.response.body",
+                "body": b"Forbidden",
+                "more_body": False,
+            }
+        )
 
         # This doesn't raise `TypeError`:
         # See https://github.com/encode/uvicorn/issues/244
